@@ -1,4 +1,5 @@
 import nodemailer from 'nodemailer';
+import dns from 'dns/promises';
 
 const EMAIL_DISABLED = String(process.env.EMAIL_DISABLED || '').toLowerCase() === 'true';
 
@@ -6,43 +7,37 @@ let transporter = null;
 if (!EMAIL_DISABLED) {
   console.log('🔧 Inizializzazione SMTP...');
 
+  // Prima verifica DNS
+  try {
+    const address = await dns.lookup('smtp.gmail.com');
+    console.log('✅ DNS lookup riuscito:', address);
+  } catch (err) {
+    console.error('❌ DNS lookup fallito:', err.message);
+  }
+
   transporter = nodemailer.createTransport({
     host: 'smtp.gmail.com',
     port: 587,
-    secure: false, // STARTTLS
-    requireTLS: true,
+    secure: false,
     auth: {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_PASS
     },
-    tls: {
-      ciphers: 'SSLv3',
-      rejectUnauthorized: false
-    },
-    timeout: 10000 // 10 secondi di timeout
+    connectionTimeout: 5000,
+    greetingTimeout: 5000,
+    socketTimeout: 5000
   });
 
-  // Verifica immediata
-  transporter.verify()
-    .then(() => {
-      console.log('✅ SMTP connesso con successo');
-    })
-    .catch((err) => {
-      console.error('❌ SMTP errore:', {
-        message: err.message,
-        code: err.code,
-        command: err.command
-      });
-      
-      // Prova a fare un ping al server SMTP
-      require('dns').lookup('smtp.gmail.com', (err, address) => {
-        if (err) {
-          console.error('❌ DNS lookup fallito:', err.message);
-        } else {
-          console.log('✅ SMTP server raggiungibile:', address);
-        }
-      });
+  try {
+    await transporter.verify();
+    console.log('✅ SMTP connesso con successo');
+  } catch (err) {
+    console.error('❌ SMTP errore:', {
+      message: err.message,
+      code: err.code,
+      command: err.command
     });
+  }
 }
 
 export const sendNotification = async (to, subject, html) => {
@@ -51,15 +46,12 @@ export const sendNotification = async (to, subject, html) => {
     return false;
   }
 
-  console.log('📧 Tentativo invio email a:', to);
-  
   try {
     const info = await transporter.sendMail({
       from: process.env.EMAIL_USER,
       to,
       subject,
-      html,
-      timeout: 10000
+      html
     });
     console.log('✅ Email inviata:', info.messageId);
     return true;
