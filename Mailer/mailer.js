@@ -3,7 +3,7 @@ import sgMail from '@sendgrid/mail';
 const EMAIL_DISABLED = String(process.env.EMAIL_DISABLED || '').toLowerCase() === 'true';
 
 if (!EMAIL_DISABLED) {
-  console.log('🔧 Inizializzazione SendGrid con:', process.env.EMAIL_USER);
+  console.log('🔧 Inizializzazione SendGrid...');
   try {
     sgMail.setApiKey(process.env.SENDGRID_API_KEY);
     console.log('✅ SendGrid inizializzato');
@@ -19,41 +19,37 @@ export const sendNotification = async (to, subject, html) => {
   }
 
   try {
-    console.log('🔄 Preparazione email per:', to);
-    
     const msg = {
       to,
       from: {
-        email: process.env.EMAIL_USER,
+        email: 'itcurami@gmail.com',
         name: 'Curami.it'
       },
       subject,
       html,
+      categories: ['transactional'],
+      headers: {
+        'List-Unsubscribe': '<mailto:itcurami@gmail.com>',
+        'Priority': 'High',
+        'X-SES-CONFIGURATION-SET': 'ConfigSet'
+      },
       trackingSettings: {
-        clickTracking: { enable: false },
-        openTracking: { enable: false }
+        clickTracking: { enable: true },
+        openTracking: { enable: true },
+        subscriptionTracking: { enable: false }
+      },
+      mailSettings: {
+        sandboxMode: { enable: false },
+        bypassListManagement: { enable: true }
+      },
+      asm: {
+        groupId: 0
       }
     };
 
-    console.log('📨 Invio email con configurazione:', {
-      to: msg.to,
-      from: msg.from,
-      subject: msg.subject
-    });
-
-    const [response] = await sgMail.send(msg);
+    await sgMail.send(msg);
     
-    console.log('📬 Risposta SendGrid:', {
-      statusCode: response?.statusCode,
-      headers: response?.headers,
-      body: response?.body
-    });
-
-    if (response?.statusCode !== 202) {
-      throw new Error(`SendGrid response: ${response?.statusCode}`);
-    }
-    
-    console.log('✅ Email inviata correttamente:', {
+    console.log('✅ Email inviata:', {
       to,
       subject,
       timestamp: new Date().toISOString()
