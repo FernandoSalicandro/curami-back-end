@@ -1,65 +1,51 @@
-import nodemailer from 'nodemailer';
-import dns from 'dns/promises';
+import sgMail from '@sendgrid/mail';
 
 const EMAIL_DISABLED = String(process.env.EMAIL_DISABLED || '').toLowerCase() === 'true';
 
-let transporter = null;
+// Inizializzazione SendGrid
 if (!EMAIL_DISABLED) {
-  console.log('🔧 Inizializzazione SMTP...');
-
-  // Prima verifica DNS
+  console.log('🔧 Inizializzazione SendGrid...');
   try {
-    const address = await dns.lookup('smtp.gmail.com');
-    console.log('✅ DNS lookup riuscito:', address);
+    sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+    console.log('✅ SendGrid inizializzato');
   } catch (err) {
-    console.error('❌ DNS lookup fallito:', err.message);
-  }
-
-  transporter = nodemailer.createTransport({
-    host: 'smtp.gmail.com',
-    port: 587,
-    secure: false,
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS
-    },
-    connectionTimeout: 5000,
-    greetingTimeout: 5000,
-    socketTimeout: 5000
-  });
-
-  try {
-    await transporter.verify();
-    console.log('✅ SMTP connesso con successo');
-  } catch (err) {
-    console.error('❌ SMTP errore:', {
-      message: err.message,
-      code: err.code,
-      command: err.command
-    });
+    console.error('❌ Errore inizializzazione SendGrid:', err.message);
   }
 }
 
 export const sendNotification = async (to, subject, html) => {
-  if (!transporter) {
-    console.error('❌ SMTP non inizializzato');
-    return false;
+  if (EMAIL_DISABLED) {
+    console.log('📧 EMAIL_DISABLED: skip ->', { to, subject });
+    return true;
   }
 
   try {
-    const info = await transporter.sendMail({
-      from: process.env.EMAIL_USER,
+    const msg = {
+      to,
+      from: 'itcurami@gmail.com', // email verificata su SendGrid
+      subject,
+      html,
+    };
+
+    await sgMail.send(msg);
+    
+    console.log('✅ Email inviata:', {
       to,
       subject,
-      html
+      timestamp: new Date().toISOString()
     });
-    console.log('✅ Email inviata:', info.messageId);
+    
     return true;
   } catch (error) {
-    console.error('❌ Errore invio:', {
+    console.error('❌ Errore invio email:', {
+      to,
+      subject,
       error: error.message,
-      code: error.code
+      code: error.code,
+      response: error.response?.body,
+      timestamp: new Date().toISOString()
     });
+    
     return false;
   }
 };
