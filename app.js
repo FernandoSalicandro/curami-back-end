@@ -5,6 +5,8 @@ import router from './Routes/router.js';
 const app = express();
 const port = process.env.PORT || 3000;
 
+// Middleware per parsing JSON e file statici
+app.use(express.json());
 // Middleware per il logging delle richieste
 app.use((req, res, next) => {
   console.log(`📥 ${req.method} ${req.path}`, {
@@ -27,8 +29,7 @@ app.use(cors({
   credentials: true
 }));
 
-// Middleware per parsing JSON e file statici
-app.use(express.json());
+
 app.use(express.static('public'));
 
 // Error handling middleware
