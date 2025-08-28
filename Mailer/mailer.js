@@ -2,7 +2,6 @@ import sgMail from '@sendgrid/mail';
 
 const EMAIL_DISABLED = String(process.env.EMAIL_DISABLED || '').toLowerCase() === 'true';
 
-// Inizializzazione SendGrid
 if (!EMAIL_DISABLED) {
   console.log('🔧 Inizializzazione SendGrid...');
   try {
@@ -22,9 +21,30 @@ export const sendNotification = async (to, subject, html) => {
   try {
     const msg = {
       to,
-      from: 'itcurami@gmail.com', // email verificata su SendGrid
+      from: {
+        email: 'itcurami@gmail.com',
+        name: 'Curami.it'
+      },
       subject,
       html,
+      categories: ['transactional'],
+      headers: {
+        'List-Unsubscribe': '<mailto:itcurami@gmail.com>',
+        'Priority': 'High',
+        'X-SES-CONFIGURATION-SET': 'ConfigSet'
+      },
+      trackingSettings: {
+        clickTracking: { enable: true },
+        openTracking: { enable: true },
+        subscriptionTracking: { enable: false }
+      },
+      mailSettings: {
+        sandboxMode: { enable: false },
+        bypassListManagement: { enable: true }
+      },
+      asm: {
+        groupId: 0
+      }
     };
 
     await sgMail.send(msg);
