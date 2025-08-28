@@ -1,3 +1,20 @@
+import sgMail from '@sendgrid/mail';
+
+const EMAIL_DISABLED = String(process.env.EMAIL_DISABLED || '').toLowerCase() === 'true';
+let sendgridInitialized = false;
+
+// Inizializzazione SendGrid
+if (!EMAIL_DISABLED) {
+  console.log('🔧 Inizializzazione SendGrid...');
+  try {
+    sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+    sendgridInitialized = true;
+    console.log('✅ SendGrid inizializzato');
+  } catch (err) {
+    console.error('❌ Errore inizializzazione SendGrid:', err.message);
+  }
+}
+
 export const sendNotification = async (to, subject, html) => {
   const startTime = Date.now();
   const logId = Math.random().toString(36).substring(7);
