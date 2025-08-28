@@ -15,11 +15,9 @@ const validatePaziente = (data) => {
   const errors = [];
 
   if (!data.nome?.trim()) errors.push('Nome è obbligatorio');
-  // cognome è facoltativo
   if (!data.email?.trim()) errors.push('Email è obbligatoria');
   if (!data.genere) errors.push('Genere è obbligatorio');
 
-  // accetta eta o età
   const eta = data.età ?? data.eta;
   if (!eta) errors.push('Età è obbligatoria');
 
@@ -45,7 +43,6 @@ const validateMatching = (data) => {
   if (!giorni.length) errors.push('Giorni sono obbligatori');
   if (!orari.length)  errors.push('Orari sono obbligatori');
   if (!data.nome?.trim()) errors.push('Nome paziente è obbligatorio');
-  // cognome facoltativo
 
   if (giorni.some(g => !GIORNI_VALIDI.includes(g))) errors.push('Uno o più giorni non sono validi');
   if (orari.some(o => !ORARI_VALIDI.includes(o)))   errors.push('Uno o più orari non sono validi');
@@ -72,12 +69,13 @@ const show = (_req, res) => {
 const post = async (req, res) => {
   try {
     const b = req.body || {};
+    console.log('📝 Dati paziente ricevuti:', b);
+
     const validationErrors = validatePaziente(b);
     if (validationErrors.length) {
       return res.status(400).json({ error: 'Errori di validazione', details: validationErrors });
     }
 
-    // normalizzazioni
     const eta = b.età ?? b.eta;
     const servizioValido = b.servizio || 'Entrambi';
     const giorniCSV = toCSV(b.giorni);
@@ -98,17 +96,17 @@ const post = async (req, res) => {
       b.nome, b.cognome ?? null, b.telefono ?? null, b.email
     ];
 
-    connection.query(sql, values, (error, result) => {
+    connection.query(sql, values, async (error, result) => {
       if (error) {
         console.error('Errore nella query:', error);
         return res.status(500).json({ error: 'Errore nel server' });
       }
 
-      // rispondi SUBITO al client
       res.status(201).json({ message: 'Paziente inserito con successo', insertId: result.insertId });
 
-      // invio email in background (non blocca la risposta)
-      setImmediate(() => {
+      setImmediate(async () => {
+        console.log('📧 Tentativo invio email paziente:', b.email);
+        
         const html = `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
             <h2 style="color: #2c3e50;">Gentile ${b.nome},</h2>
@@ -132,8 +130,17 @@ const post = async (req, res) => {
             <p style="color: #7f8c8d; font-size: 14px;">Cordiali saluti,<br>Il team di Curami.it</p>
           </div>
         `;
-        sendNotification(b.email, 'Conferma della tua richiesta su Curami.it', html)
-          .catch(err => console.error('Invio email fallito:', err));
+
+        try {
+          await sendNotification(b.email, 'Conferma della tua richiesta su Curami.it', html);
+          console.log('✅ Email paziente inviata con successo a:', b.email);
+        } catch (err) {
+          console.error('❌ Errore invio email paziente:', {
+            email: b.email,
+            error: err.message,
+            stack: err.stack
+          });
+        }
       });
     });
   } catch (error) {
@@ -145,6 +152,8 @@ const post = async (req, res) => {
 const matching = async (req, res) => {
   try {
     const b = req.body || {};
+    console.log('🔍 Dati matching ricevuti:', b);
+
     const validationErrors = validateMatching(b);
     if (validationErrors.length) {
       return res.status(400).json({ error: 'Errori di validazione', details: validationErrors });
@@ -155,7 +164,6 @@ const matching = async (req, res) => {
     const orari  = toArray(b.orari);
     const preferenza_genere = b.preferenza_genere ?? b.preferenzaGenere ?? 'Indifferente';
 
-    // condizioni OR su (giorno, orario)
     const condizioni = [];
     const valuesForConditions = [];
     for (const g of giorni) {
@@ -205,7 +213,7 @@ const matching = async (req, res) => {
       values.push(...valuesForConditions);
     }
 
-    connection.query(sql, values, (error, matchingResult) => {
+    connection.query(sql, values, async (error, matchingResult) => {
       if (error) {
         console.error('❌ Errore nella query:', error);
         return res.status(500).json({ error: 'Errore nel server' });
@@ -215,12 +223,14 @@ const matching = async (req, res) => {
         return res.status(404).json({ message: 'Nessun professionista disponibile con i criteri specificati' });
       }
 
-      // rispondi SUBITO con i risultati
       res.status(200).json(matchingResult);
 
-      // email ai professionisti in background (no await)
-      setImmediate(() => {
-        const payloads = matchingResult.map((prof) => {
+      setImmediate(async () => {
+        console.log('📧 Invio email a professionisti:', matchingResult.map(p => p.email));
+        
+        for (const prof of matchingResult) {
+          console.log('📧 Tentativo invio email professionista:', prof.email);
+          
           const html = `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
               <h2 style="color: #2c3e50;">Gentile ${prof.nome} ${prof.cognome},</h2>
@@ -242,10 +252,18 @@ const matching = async (req, res) => {
               <p style="color:#7f8c8d;font-size:14px;">Cordiali saluti,<br>Il team di Curami.it</p>
             </div>
           `;
-          return sendNotification(prof.email, 'Nuova richiesta di assistenza su Curami.it', html);
-        });
 
-        Promise.allSettled(payloads).catch(e => console.error('Errore invio email professionisti:', e));
+          try {
+            await sendNotification(prof.email, 'Nuova richiesta di assistenza su Curami.it', html);
+            console.log('✅ Email professionista inviata con successo a:', prof.email);
+          } catch (err) {
+            console.error('❌ Errore invio email professionista:', {
+              email: prof.email,
+              error: err.message,
+              stack: err.stack
+            });
+          }
+        }
       });
     });
   } catch (error) {
