@@ -22,6 +22,7 @@ app.use(cors({
   origin: [
     'http://localhost:5173', 
     'https://curami-frontend.vercel.app',
+    'https://fisionurse.com',
     'https://curami-back-end-production.up.railway.app',
     'https://063b3fdb5463.ngrok-free.app'
   ],
