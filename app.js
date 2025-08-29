@@ -20,8 +20,9 @@ app.use((req, res, next) => {
 // Configurazione CORS
 app.use(cors({
   origin: [
-    'http://localhost:5173', 
+    'http://localhost:5173',
     'https://fisionurse.com',
+    'https://www.fisionurse.com',
     'https://curami-back-end-production.up.railway.app',
     'https://063b3fdb5463.ngrok-free.app'
   ],
