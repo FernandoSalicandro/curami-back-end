@@ -17,15 +17,17 @@ app.use((req, res, next) => {
   next();
 });
 
-// Configurazione CORS
-app.use(cors({
-  origin: [
-    'http://localhost:5173',
+
+const allOwedIOrigins = [
+  'http://localhost:5173',
     'https://fisionurse.com',
     'https://www.fisionurse.com',
+    'https://curami-frontend.vercel.app',
     'https://curami-back-end-production.up.railway.app',
-    'https://063b3fdb5463.ngrok-free.app'
-  ],
+]
+// Configurazione CORS
+app.use(cors({
+  origin: allOwedIOrigins,
   methods: ['GET', 'POST'],
   credentials: true
 }));
@@ -54,12 +56,7 @@ app.use((req, res) => {
 app.listen(port, () => {
   console.log('🚀 Server in ascolto sulla porta:', port);
   console.log('📍 Ambiente:', process.env.NODE_ENV || 'development');
-  console.log('🔑 CORS abilitato per:', [
-    'http://localhost:5173', 
-    'https://curami-frontend.vercel.app',
-    'https://curami-back-end-production.up.railway.app',
-    
-  ]);
+  console.log('🔑 CORS abilitato per:', allOwedIOrigins);
 });
 
 // Gestione errori non catturati
